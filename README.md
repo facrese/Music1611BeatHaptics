@@ -8,7 +8,10 @@ It observes authenticated catalog requests within Music, fetches the
 schedules its beat/bar timeline with Core Haptics. It does not implement or
 claim to reproduce Apple's Music Haptics AHAP assets.
 
-This is not validated on a physical iPhone yet. In particular, whether the
+The injected library must use the arm64e ABI: Music 16.1.1 itself is arm64e,
+and dyld rejects an arm64-only library before any injected code can run.
+
+The arm64e build is not validated on a physical iPhone yet. In particular, whether the
 Music 16.1.1 network client exposes usable authorization headers through
 `NSURLSession`, and whether Core Haptics continues while Music is backgrounded,
 require device testing. Logs use the `[BeatHaptics]` prefix and never print
