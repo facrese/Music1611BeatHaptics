@@ -23,6 +23,7 @@
 @property (nonatomic) BOOL fetching;
 @property (nonatomic) BOOL playing;
 @property (nonatomic) CFTimeInterval nextFetchTime;
+@property (nonatomic) BOOL loggedAuthorization;
 + (instancetype)shared;
 - (void)observeRequest:(NSURLRequest *)request;
 - (void)tick;
@@ -102,6 +103,10 @@ static NSDictionary *BHFindBeats(id node, NSUInteger depth) {
     dispatch_async(dispatch_get_main_queue(), ^{
         self.requestHeaders = headers;
         if (storefront.length == 2) self.storefront = storefront;
+        if (!self.loggedAuthorization) {
+            self.loggedAuthorization = YES;
+            NSLog(@"[BeatHaptics] Captured Music catalog authorization; storefront=%@", self.storefront);
+        }
         if (self.songID.length && !self.beats.count && !self.fetching &&
             CACurrentMediaTime() >= self.nextFetchTime) [self fetchBeats];
     });
@@ -193,6 +198,12 @@ static NSDictionary *BHFindBeats(id node, NSUInteger depth) {
     NSSet *barTimes = [NSSet setWithArray:self.bars ?: @[]];
     for (NSNumber *time in self.beats) {
         BOOL bar = [barTimes containsObject:time];
+        if (!bar) {
+            for (NSNumber *barTime in self.bars) {
+                if (labs(barTime.longValue - time.longValue) <= 55) { bar = YES; break; }
+                if (barTime.longValue > time.longValue + 55) break;
+            }
+        }
         float intensity = bar ? 0.72f : 0.38f;
         float sharpness = bar ? 0.62f : 0.46f;
         NSArray *parameters = @[
@@ -225,13 +236,14 @@ static NSDictionary *BHFindBeats(id node, NSUInteger depth) {
     MPMusicPlayerController *music = MPMusicPlayerController.systemMusicPlayer;
     NSString *songID = music.nowPlayingItem.playbackStoreID;
     if (!BHValidSongID(songID)) songID = nil;
-    if (![songID isEqualToString:self.songID]) {
+    if ((songID || self.songID) && ![songID isEqualToString:self.songID]) {
         [self stopPlayback];
         self.songID = songID;
         self.beats = nil;
         self.bars = nil;
         self.fetching = NO;
         self.nextFetchTime = 0;
+        NSLog(@"[BeatHaptics] Song changed: %@", songID ?: @"none");
         if (songID) [self fetchBeats];
     }
     if (music.playbackState != MPMusicPlaybackStatePlaying || !songID) {
@@ -263,6 +275,7 @@ static NSDictionary *BHFindBeats(id node, NSUInteger depth) {
     self.anchorPosition = position;
     self.anchorTime = CACurrentMediaTime();
     self.playing = YES;
+    NSLog(@"[BeatHaptics] Haptics started at %.3fs", position);
 }
 @end
 
