@@ -297,17 +297,49 @@ static NSDictionary *BHFindBeats(id node, NSUInteger depth) {
 }
 @end
 
-static void BHSwizzle(SEL original, SEL replacement) {
-    Class target = NSURLSession.class;
+@interface NSMutableURLRequest (BHAuthenticationCapture)
+- (void)bh_setValue:(NSString *)value forHTTPHeaderField:(NSString *)field;
+- (void)bh_addValue:(NSString *)value forHTTPHeaderField:(NSString *)field;
+- (void)bh_setAllHTTPHeaderFields:(NSDictionary<NSString *, NSString *> *)fields;
+@end
+
+@implementation NSMutableURLRequest (BHAuthenticationCapture)
+- (void)bh_setValue:(NSString *)value forHTTPHeaderField:(NSString *)field {
+    [self bh_setValue:value forHTTPHeaderField:field];
+    if ([field caseInsensitiveCompare:@"Authorization"] == NSOrderedSame ||
+        [field caseInsensitiveCompare:@"media-user-token"] == NSOrderedSame) {
+        [[BHController shared] observeRequest:self];
+    }
+}
+- (void)bh_addValue:(NSString *)value forHTTPHeaderField:(NSString *)field {
+    [self bh_addValue:value forHTTPHeaderField:field];
+    if ([field caseInsensitiveCompare:@"Authorization"] == NSOrderedSame ||
+        [field caseInsensitiveCompare:@"media-user-token"] == NSOrderedSame) {
+        [[BHController shared] observeRequest:self];
+    }
+}
+- (void)bh_setAllHTTPHeaderFields:(NSDictionary<NSString *, NSString *> *)fields {
+    [self bh_setAllHTTPHeaderFields:fields];
+    [[BHController shared] observeRequest:self];
+}
+@end
+
+static void BHSwizzle(Class target, SEL original, SEL replacement) {
     Method a = class_getInstanceMethod(target, original);
     Method b = class_getInstanceMethod(target, replacement);
     if (a && b) method_exchangeImplementations(a, b);
 }
 
 __attribute__((constructor)) static void BHStart(void) {
-    BHSwizzle(@selector(dataTaskWithRequest:completionHandler:),
+    BHSwizzle(NSURLSession.class, @selector(dataTaskWithRequest:completionHandler:),
              @selector(bh_dataTaskWithRequest:completionHandler:));
-    BHSwizzle(@selector(dataTaskWithRequest:), @selector(bh_dataTaskWithRequest:));
+    BHSwizzle(NSURLSession.class, @selector(dataTaskWithRequest:), @selector(bh_dataTaskWithRequest:));
+    BHSwizzle(NSMutableURLRequest.class, @selector(setValue:forHTTPHeaderField:),
+             @selector(bh_setValue:forHTTPHeaderField:));
+    BHSwizzle(NSMutableURLRequest.class, @selector(addValue:forHTTPHeaderField:),
+             @selector(bh_addValue:forHTTPHeaderField:));
+    BHSwizzle(NSMutableURLRequest.class, @selector(setAllHTTPHeaderFields:),
+             @selector(bh_setAllHTTPHeaderFields:));
     dispatch_async(dispatch_get_main_queue(), ^{
         BHController *controller = [BHController shared];
         NSTimer *timer = [NSTimer timerWithTimeInterval:0.5 repeats:YES block:^(NSTimer *ignored) {
