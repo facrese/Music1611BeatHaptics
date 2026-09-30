@@ -10,6 +10,8 @@ on:
 jobs:
   build:
     runs-on: macos-15
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
       - name: Compile for iOS 16 arm64
@@ -25,3 +27,12 @@ jobs:
         with:
           name: BeatHaptics-ios16-arm64
           path: BeatHaptics.dylib
+      - name: Publish test dylib without Apple binaries
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create latest-experimental BeatHaptics.dylib \
+            --title 'Experimental beat haptics dylib' \
+            --notes 'Unsigned test build for Music 16.1.1; device validation required.' \
+            --prerelease --target "$GITHUB_SHA" || \
+          gh release upload latest-experimental BeatHaptics.dylib --clobber
