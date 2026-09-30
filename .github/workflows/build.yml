@@ -1,0 +1,27 @@
+name: Build iOS beat haptics dylib
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - BeatHaptics.m
+      - .github/workflows/build.yml
+
+jobs:
+  build:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compile for iOS 16 arm64
+        run: |
+          xcrun --sdk iphoneos clang -arch arm64 -miphoneos-version-min=16.1 \
+            -fobjc-arc -fblocks -dynamiclib -O2 -Wall -Wextra \
+            -framework Foundation -framework MediaPlayer -framework CoreHaptics \
+            -framework UIKit -framework QuartzCore \
+            -install_name @executable_path/Frameworks/BeatHaptics.dylib \
+            BeatHaptics.m -o BeatHaptics.dylib
+          codesign --force --sign - BeatHaptics.dylib
+      - uses: actions/upload-artifact@v4
+        with:
+          name: BeatHaptics-ios16-arm64
+          path: BeatHaptics.dylib
