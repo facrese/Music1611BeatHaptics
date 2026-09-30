@@ -10,6 +10,10 @@ claim to reproduce Apple's Music Haptics AHAP assets.
 
 The injected library must use the arm64e ABI: Music 16.1.1 itself is arm64e,
 and dyld rejects an arm64-only library before any injected code can run.
+When packaging the IPA, add a non-empty `NSAppleMusicUsageDescription` string
+to the main app's `Info.plist` before re-signing it. The original system app
+does not include that key; accessing `MPMusicPlayerController` from the
+modified app otherwise causes a TCC privacy-violation abort at launch.
 
 The arm64e build is not validated on a physical iPhone yet. In particular, whether the
 Music 16.1.1 network client exposes usable authorization headers through
